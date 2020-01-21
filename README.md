@@ -118,4 +118,23 @@ results will be validated against their JSON Schemas (but not in production).
 
 ### Run the tests
 
+Activate a virtual env with something like
+
+```sh
+python -m venv env
+source env/bin/activate
+```
+
+Install dependencies and test dependencies
+
+```sh
+pip install -r requirements.txt -r dev-requirements.txt
+```
+
+Run the tests
+
+```sh
+make test
+```
+
 ### Contribution

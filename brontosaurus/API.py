@@ -1,8 +1,9 @@
 import sanic
 import jsonschema
 import jsonschema.exceptions
-import brontosaurus.exceptions
 import traceback
+import multiprocessing
+import brontosaurus.exceptions
 
 
 class API:
@@ -73,10 +74,12 @@ class API:
         self.refs[name] = schema
         return schema
 
-    def run(self, host='0.0.0.0', port=8080, development=True, cors=False):
+    def run(self, host='0.0.0.0', port=8080, development=True, cors=False, workers=None):
         """
         Run the server.
         """
+        if not workers:
+            workers = multiprocessing.cpu_count()
         app = sanic.Sanic()
 
         @app.route("/", methods=['OPTIONS', 'PUT', 'POST', 'GET', 'DELETE'])
@@ -141,7 +144,7 @@ class API:
                 res.headers['Access-Control-Allow-Origin'] = '*'
                 res.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS'
                 res.headers['Access-Control-Allow-Headers'] = '*'
-        app.run(host=host, port=port)
+        app.run(host=host, port=port, workers=workers)
 
 
 # A forgiving JSON Schema for JSON RPC 2.0. Does not require the "jsonrpc" or
@@ -154,7 +157,7 @@ json_rpc2_schema = {
             'type': 'string'
         },
         'id': {
-            'type': ['integer', 'string', 'null']
+            'type': ['integer', 'string', 'number', 'null']
         },
         'params': {
             'type': ['array', 'object']
