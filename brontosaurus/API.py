@@ -1,17 +1,14 @@
 import sanic
 import jsonschema
 import jsonschema.exceptions
-
-
-class Method:
-
-    def __init__(self, name, summary, handler):
-        self.name = name
-        self.summary = summary
-        self.handler = handler
+import brontosaurus.exceptions
+import traceback
 
 
 class API:
+    """
+    Class for a brontosaurus API object.
+    """
 
     def __init__(self):
         """
@@ -21,6 +18,8 @@ class API:
         self.methods = {}  # type: dict
         # Map method name to function IDs
         self.method_names = {}  # type: dict
+        # Map names to JSON schemas for generating documentation
+        self.refs = {}  # type: dict
         return
 
     def method(self, name, summary):
@@ -28,9 +27,10 @@ class API:
         Register a new RPC method.
         """
         if name in self.methods:
-            raise RuntimeError(f"Method already registered: {name}")
+            raise brontosaurus.exceptions.MethodAlreadyExists(f"Method already registered: {name}")
 
         def wrapper(func):
+            print('func?!', func)
             _id = id(func)
             if _id not in self.methods:
                 self.methods[_id] = {}
@@ -51,6 +51,7 @@ class API:
             if _id not in self.methods:
                 self.methods[_id] = {}
             self.methods[_id]['params_schema'] = schema
+            return func
         return wrapper
 
     def result(self, schema):
@@ -63,7 +64,14 @@ class API:
             if _id not in self.methods:
                 self.methods[_id] = {}
             self.methods[_id]['result_schema'] = schema
+            return func
         return wrapper
+
+    def ref(self, name, schema):
+        if name in self.refs:
+            raise brontosaurus.exceptions.SchemaAlreadyExists(f"Schema already exists: {name}")
+        self.refs[name] = schema
+        return schema
 
     def run(self, host='0.0.0.0', port=8080, development=True, cors=False):
         """
@@ -71,41 +79,68 @@ class API:
         """
         app = sanic.Sanic()
 
-        @app.route("/", methods=['POST', 'OPTIONS'])
+        @app.route("/", methods=['OPTIONS', 'PUT', 'POST', 'GET', 'DELETE'])
         def root_route(req):
             try:
                 req_json = req.json
-            except Exception as err:  # TODO Get more specific err class
-                return sanic.response.json(_invalid_json_resp(req, err))
+            except sanic.exceptions.InvalidUsage as err:
+                return sanic.response.json(_invalid_json_resp(req, err), 400)
             try:
-                jsonschema.validate(json_rpc2_schema, req_json)
+                jsonschema.validate(req_json, json_rpc2_schema)
             except jsonschema.exceptions.ValidationError as err:
-                return sanic.response.json(_invalid_json_rpc_resp(req_json, err))
+                return sanic.response.json(_invalid_json_rpc_resp(req_json, err), 400)
             meth_name = req_json['method']
             if meth_name not in self.method_names:
-                return sanic.response.json(_unknown_method_resp(req_json, meth_name))
+                return sanic.response.json(_unknown_method_resp(req_json, meth_name), 400)
             meth_id = self.method_names[meth_name]
             meth = self.methods[meth_id]
             # Validate the parameters
             if 'params_schema' in meth:
+                if req_json.get('params') is None:
+                    return sanic.response.json(_missing_params_resp(req_json), 400)
                 try:
                     jsonschema.validate(req_json.get('params'), meth['params_schema'])
                 except jsonschema.exceptions.ValidationError as err:
-                   return sanic.response.json(_invalid_params_resp(req_json, err))
+                    return sanic.response.json(_invalid_params_resp(req_json, err), 400)
             # Compute the result
             func = meth['func']
             try:
                 result = func(req_json.get('params'), dict(req.headers))
             except Exception as err:
-                return sanic.response.json(_server_err_resp(req_json, err))
+                return sanic.response.json(_server_err_resp(req_json, err), 500)
             # Validate the result
             if development and 'result_schema' in meth:
                 jsonschema.validate(result, meth['result_schema'])
             return sanic.response.json({
                 'jsonrpc': '2.0',
-                'id': req_json.get('id'),
+                'id': _get_req_id(req_json),
                 'result': result
             })
+
+        # Handle an OPTIONS request
+        @app.middleware('request')
+        async def cors_options(request):
+            if request.method == 'OPTIONS':
+                return sanic.response.raw(b'', status=204)
+
+        # Handle a 404
+        @app.exception(sanic.exceptions.NotFound)
+        def not_found(req, err):
+            return sanic.response.raw(b'', 404)
+
+        @app.exception(Exception)
+        def unknown_error(req, err):
+            print(err)
+            traceback.print_exc()
+            return sanic.response.raw(b'', 500)
+
+        if cors:
+            # Handle cors response headers
+            @app.middleware('response')
+            async def cors_resp(req, res):
+                res.headers['Access-Control-Allow-Origin'] = '*'
+                res.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS'
+                res.headers['Access-Control-Allow-Headers'] = '*'
         app.run(host=host, port=port)
 
 
@@ -134,10 +169,10 @@ json_rpc2_schema = {
 def _unknown_method_resp(req_json, meth_name):
     return {
         'jsonrpc': '2.0',
-        'id': req_json.get('id'),
+        'id': _get_req_id(req_json),
         'error': {
-            'code': 123,  # TODO,
-            'message': f'Unknown method: {meth_name}'
+            'code': -32601,
+            'message': f"Unknown method: '{meth_name}'"
         }
     }
 
@@ -147,8 +182,8 @@ def _invalid_json_resp(req, err):
         'jsonrpc': '2.0',
         'id': None,
         'error': {
-            'code': 123,  # TODO
-            'message': 'Unable to parse JSON'  # TODO error message
+            'code': -32700,
+            'message': str(err)
         }
     }
 
@@ -156,10 +191,15 @@ def _invalid_json_resp(req, err):
 def _invalid_json_rpc_resp(req_json, err):
     return {
         'jsonrpc': '2.0',
-        'id': req_json.get('id'),
+        'id': _get_req_id(req_json),
         'error': {
-            'code': 123,  # TODO
-            'message': 'Invalid JSON RPC 2.0 format',  # TODO details of schema validation failure
+            'code': -32600,
+            'message': 'Invalid JSON RPC 2.0 request',
+            'data': {
+                'validation_error': err.message,
+                'value': err.instance,
+                'path': list(err.absolute_path)
+            }
         }
     }
 
@@ -170,10 +210,15 @@ def _invalid_params_resp(req_json, err):
     """
     return {
         'jsonrpc': '2.0',
-        'id': req_json.get('id'),
+        'id': _get_req_id(req_json),
         'error': {
-            'code': 123,  # TODO
-            'message': err.message  # TODO
+            'code': -32602,
+            'message': err.message,
+            'data': {
+                'failed_validator': err.validator,
+                'value': err.instance,
+                'path': list(err.absolute_path)
+            }
         }
     }
 
@@ -185,10 +230,10 @@ def _server_err_resp(req_json, err):
     if hasattr(err, 'error_code'):
         code = err.error_code
     else:
-        code = 123  # TODO server error code
+        code = -32000
     resp = {
         'jsonrpc': '2.0',
-        'id': req_json.get('id'),
+        'id': _get_req_id(req_json),
         'error': {
             'code': code,
             'message': str(err)
@@ -196,4 +241,23 @@ def _server_err_resp(req_json, err):
     }
     if hasattr(err, 'resp_data'):
         resp['error']['data'] = err.resp_data
+    return resp
+
+
+def _get_req_id(req_json):
+    try:
+        return req_json['id']
+    except Exception:
+        return None
+
+
+def _missing_params_resp(req_json):
+    resp = {
+        'jsonrpc': '2.0',
+        'id': _get_req_id(req_json),
+        'error': {
+            'code': -32602,
+            'error': 'Missing params'
+        }
+    }
     return resp
