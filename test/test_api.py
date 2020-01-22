@@ -6,17 +6,27 @@ import time
 
 _URL = 'http://localhost:8080'
 
-api = API()
+desc = """
+This is a server for running tests on brontosaurus.
+"""
 
-message = api.ref('message', {
-    'type': 'object',
-    'required': ['message'],
-    'properties': {
-        'message': {
-            'type': 'string'
+api = API('Test Server', desc)
+
+message = api.ref(
+    'message',
+    'Text message to echo back for testing',
+    {
+        'type': 'object',
+        'required': ['message'],
+        'properties': {
+            'message': {
+                'title': 'Message',
+                'description': 'String to echo back to you',
+                'type': 'string'
+            }
         }
     }
-})
+)
 
 
 @api.method('echo', 'Is there an echo in here?')
