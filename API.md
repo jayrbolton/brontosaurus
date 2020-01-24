@@ -1,34 +1,102 @@
-# Test Server
+# Brontosaurus Petstore
 
 
-This is a server for running tests on brontosaurus.
+This is a sample Petstore server. You can find out more about Brontosaurus
+at http://spacejam.com. For this sample, you can use the api key
+special-key to test the authorization filters.
 
 
 ## Methods
 
-### `echo`
+### get_pet(object) ⇒ [#pet](#pet)
 
-Is there an echo in here?
+Fetch a pet by ID
 
-**Params type:** [Message](#message)
+#### Parameters
 
-**Result type:** [Message](#message)
+JSON object with properties:
 
-### `invalid_result`
+* `"id"` – required integer
 
-Test a result that fails schema check
+**Result type:** [#pet](#pet)
 
-**Params type:** [Message](#message)
+### update_pet(object) ⇒ [#pet](#pet)
 
-**Result type:** [Message](#message)
+Update a pet by ID
 
-## Data Types
+#### Parameters
 
-### <a name=#message>Message</a>
+JSON object with properties:
 
-Echo message object.
+* `"id"` – required integer
+* `"name"` – optional string
+* `"status"` – optional string
 
-Object with keys:
+**Result type:** [#pet](#pet)
 
-* `message` - required string - String to echo back to you
+### create_pet(object) ⇒ [#pet](#pet)
+
+Create a new pet entry
+
+#### Parameters
+
+JSON object with properties:
+
+* `"name"` – required string
+* `"category"` – required [#category](#category)
+* `"photoUrls"` – optional array of string (format: uri)
+* `"tags"` – optional [#tag](#tag)
+* `"status"` – required string (must be one of "available", "pending", "sold")
+
+**Result type:** [#pet](#pet)
+
+# Data Types
+
+## <a name=#pet>[#pet](#pet)</a>
+
+JSON object with properties:
+
+* `"id"` – required integer
+* `"name"` – required string
+* `"photoUrls"` – optional array of string (format: uri)
+* `"tags"` – optional array of [#tag](#tag)
+* `"status"` – required string (must be one of "available", "pending", "sold")
+
+## <a name=#order>[#order](#order)</a>
+
+JSON object with properties:
+
+* `"id"` – required integer
+* `"petId"` – required integer
+* `"quantity"` – required integer (minimum: 1)
+* `"shipDate"` – required string (format: date-time)
+* `"status"` – required string (must be one of "placed", "approved", "delivered")
+* `"complete"` – required boolean
+
+## <a name=#user>[#user](#user)</a>
+
+JSON object with properties:
+
+* `"id"` – required integer
+* `"username"` – required string
+* `"firstName"` – optional string
+* `"lastName"` – optional string
+* `"email"` – required string (format: email)
+* `"password"` – required string
+* `"phone"` – optional string
+* `"userStatus"` – required integer
+
+## <a name=#category>[#category](#category)</a>
+
+JSON object with properties:
+
+* `"id"` – required integer
+* `"name"` – required string
+
+## <a name=#tag>[#tag](#tag)</a>
+
+JSON object with properties:
+
+* `"id"` – required integer
+* `"name"` – required string
 

@@ -51,6 +51,15 @@ class API:
             elif _id not in self.refs:
                 self.refs[_id] = schema
 
+    def register(self, schema):
+        """
+        Register a reference type with an $id
+        """
+        if '$id' not in schema:
+            raise TypeError('Schema must have an "$id" field')
+        self._get_ref(schema)
+        return schema
+
     def params(self, schema):
         """
         Define a JSON schema for the RPC parameters for a method.
