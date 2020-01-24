@@ -12,21 +12,20 @@ This is a server for running tests on brontosaurus.
 
 api = API('Test Server', desc)
 
-message = api.ref(
-    'message',
-    'Text message to echo back for testing',
-    {
-        'type': 'object',
-        'required': ['message'],
-        'properties': {
-            'message': {
-                'title': 'Message',
-                'description': 'String to echo back to you',
-                'type': 'string'
-            }
+message = {
+    '$id': '#message',
+    'title': 'Message',
+    'description': 'Echo message object.',
+    'type': 'object',
+    'required': ['message'],
+    'properties': {
+        'message': {
+            'title': 'Message',
+            'description': 'String to echo back to you',
+            'type': 'string'
         }
     }
-)
+}
 
 
 @api.method('echo', 'Is there an echo in here?')

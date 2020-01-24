@@ -5,3 +5,7 @@ class SchemaAlreadyExists(Exception):
 
 class MethodAlreadyExists(Exception):
     pass
+
+
+class SchemaReferenceMismatch(Exception):
+    pass

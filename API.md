@@ -10,39 +10,23 @@ This is a server for running tests on brontosaurus.
 
 Is there an echo in here?
 
-#### Params
+**Params type:** [Message](#message)
 
-Object with keys:
-
-* `message` - required string - String to echo back to you
-
-#### Result
-
-Object with keys:
-
-* `message` - required string - String to echo back to you
+**Result type:** [Message](#message)
 
 ### `invalid_result`
 
 Test a result that fails schema check
 
-#### Params
+**Params type:** [Message](#message)
 
-Object with keys:
-
-* `message` - required string - String to echo back to you
-
-#### Result
-
-Object with keys:
-
-* `message` - required string - String to echo back to you
+**Result type:** [Message](#message)
 
 ## Data Types
 
-### message
+### <a name=#message>Message</a>
 
-Text message to echo back for testing
+Echo message object.
 
 Object with keys:
 

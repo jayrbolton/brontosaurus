@@ -42,10 +42,20 @@ class API:
             return func
         return wrapper
 
+    def _get_ref(self, schema):
+        _id = schema.get('$id')
+        if _id:
+            if _id in self.refs and schema != self.refs[_id]:
+                msg = f"Schema with $id '{_id}' has different definitions"
+                raise brontosaurus.exceptions.SchemaReferenceMismatch(msg)
+            elif _id not in self.refs:
+                self.refs[_id] = schema
+
     def params(self, schema):
         """
         Define a JSON schema for the RPC parameters for a method.
         """
+        self._get_ref(schema)
 
         def wrapper(func):
             _id = id(func)
@@ -59,6 +69,7 @@ class API:
         """
         Define a JSON schema for the RPC result for a method.
         """
+        self._get_ref(schema)
 
         def wrapper(func):
             _id = id(func)
@@ -67,12 +78,6 @@ class API:
             self.methods[_id]['result_schema'] = schema
             return func
         return wrapper
-
-    def ref(self, name, desc, schema):
-        if name in self.refs:
-            raise brontosaurus.exceptions.SchemaAlreadyExists(f"Schema already exists: {name}")
-        self.refs[name] = {'schema': schema, 'desc': desc}
-        return schema
 
     def run(self, host='0.0.0.0', port=8080, development=True, cors=False, workers=None):
         """
