@@ -21,6 +21,8 @@ class API:
         self.method_names = {}  # type: dict
         # Map names to JSON schemas for generating documentation
         self.refs = {}  # type: dict
+        # Map schema reference ids to a list of method IDs that use them
+        self.methods_using = {}
         return
 
     def method(self, name, summary):
@@ -31,7 +33,6 @@ class API:
             raise brontosaurus.exceptions.MethodAlreadyExists(f"Method already registered: {name}")
 
         def wrapper(func):
-            print('func?!', func)
             _id = id(func)
             if _id not in self.methods:
                 self.methods[_id] = {}
@@ -42,14 +43,23 @@ class API:
             return func
         return wrapper
 
-    def _get_ref(self, schema):
+    def _get_ref(self, schema, method_id=None):
         _id = schema.get('$id')
-        if _id:
-            if _id in self.refs and schema != self.refs[_id]:
-                msg = f"Schema with $id '{_id}' has different definitions"
-                raise brontosaurus.exceptions.SchemaReferenceMismatch(msg)
-            elif _id not in self.refs:
-                self.refs[_id] = schema
+        if not _id:
+            return
+        if _id in self.refs and schema != self.refs[_id]:
+            msg = f"Schema with $id '{_id}' has different definitions"
+            raise brontosaurus.exceptions.SchemaReferenceMismatch(msg)
+        elif _id not in self.refs:
+            self.refs[_id] = schema
+
+    def _save_method_using(self, schema, method_id=None):
+        _id = schema.get('$id')
+        if not _id:
+            return
+        if _id not in self.methods_using:
+            self.methods_using[_id] = []
+        self.methods_using[_id].append(method_id)
 
     def register(self, schema):
         """
@@ -71,6 +81,7 @@ class API:
             if _id not in self.methods:
                 self.methods[_id] = {}
             self.methods[_id]['params_schema'] = schema
+            self._save_method_using(schema, _id)
             return func
         return wrapper
 
@@ -85,6 +96,7 @@ class API:
             if _id not in self.methods:
                 self.methods[_id] = {}
             self.methods[_id]['result_schema'] = schema
+            self._save_method_using(schema, _id)
             return func
         return wrapper
 
@@ -93,7 +105,6 @@ class API:
         Require an HTTP(S) header with an optionally enforced string or regex
         pattern for the value.
         """
-
         def wrapper(func):
             _id = id(func)
             if _id not in self.methods:

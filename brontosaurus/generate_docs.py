@@ -30,7 +30,7 @@ def generate_docs(api):
                 meth_title += f' ⇒ {_format_type_short(result_schema)}'
             if deprec_reason:
                 meth_title = '~~' + meth_title + '~~'
-            fd.write('### ' + meth_title + '\n\n')
+            fd.write(f'### <a name=\'{meth["name"]}\'>' + meth_title + '</a>\n\n')
             if deprec_reason:
                 fd.write(f'**This method is deprecated:** {deprec_reason}\n\n')
             fd.write(f"{meth['summary']}\n\n")
@@ -62,9 +62,16 @@ def generate_docs(api):
         # Write types
         fd.write(f'# Data Types\n\n')
         for (_id, schema) in api.refs.items():
-            fd.write(f"## <a name={schema['$id']}>[{schema['$id']}]({schema['$id']})</a>\n\n")
+            id_without_hash = _id.replace('#', '')
+            fd.write(f"## <a name=\"{id_without_hash}\">[{schema['$id']}]({schema['$id']})</a>\n\n")
             if 'description' in schema:
                 fd.write(f"{schema['description']}\n\n")
+            if _id in api.methods_using:
+                methods_using = api.methods_using[_id]
+                if methods_using:
+                    method_names = [api.methods[mid]['name'] for mid in methods_using]
+                    method_names = ', '.join(f"[{n}](#{n})" for n in method_names)
+                    fd.write(f"Methods using this type: {method_names}\n\n")
             fd.write(_format_type(schema))
     print(f'Wrote docs to {path}')
     return path
