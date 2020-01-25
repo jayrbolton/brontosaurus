@@ -2,6 +2,7 @@ import multiprocessing
 import brontosaurus.exceptions
 from brontosaurus.create_sanic_server import create_sanic_server
 from brontosaurus.generate_docs import generate_docs
+from brontosaurus.utils.find_keys import find_keys
 
 
 class API:
@@ -54,12 +55,10 @@ class API:
             self.refs[_id] = schema
 
     def _save_method_using(self, schema, method_id=None):
-        _id = schema.get('$id')
-        if not _id:
-            return
-        if _id not in self.methods_using:
-            self.methods_using[_id] = []
-        self.methods_using[_id].append(method_id)
+        for _id in find_keys(schema, ['$ref', '$id']):
+            if _id not in self.methods_using:
+                self.methods_using[_id] = set()
+            self.methods_using[_id].add(method_id)
 
     def register(self, schema):
         """
