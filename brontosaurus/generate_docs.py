@@ -18,18 +18,24 @@ def generate_docs(api):
         fd.write(f'# {api.title}\n\n')
         # Write description
         fd.write(f'{api.desc}\n\n')
+        # Table of contents
+        fd.write(f'## Table of Contents\n\n')
+        fd.write(f'[Methods](#methods) ({len(api.methods)} total)\n')
+        for (_id, meth) in api.methods.items():
+            fd.write(f'* [{meth["name"]}](#{meth["name"]})\n')
+        fd.write('\n')
+        fd.write(f'[Data Types](#datatypes) ({len(api.refs)} total)\n')
+        for (_id, schema) in api.refs.items():
+            fd.write(f'* [{_id}]({_id})\n')
+        fd.write('\n')
         # Write methods
-        fd.write(f'## Methods\n\n')
+        fd.write(f'## <a name="methods">Methods</a>\n\n')
         for (meth_name, meth_id) in api.method_names.items():
             meth = api.methods[meth_id]
+            meth_title = _get_method_signature(meth)
             params_schema = meth.get('params_schema')
             result_schema = meth.get('result_schema')
-            meth_title = f'{meth_name}({_format_type_short(params_schema)})'
             deprec_reason = meth.get('deprecated')
-            if result_schema:
-                meth_title += f' ⇒ {_format_type_short(result_schema)}'
-            if deprec_reason:
-                meth_title = '~~' + meth_title + '~~'
             fd.write(f'### <a name=\'{meth["name"]}\'>' + meth_title + '</a>\n\n')
             if deprec_reason:
                 fd.write(f'**This method is deprecated:** {deprec_reason}\n\n')
@@ -60,7 +66,7 @@ def generate_docs(api):
             else:
                 fd.write(f"**No results**\n\n")
         # Write types
-        fd.write(f'# Data Types\n\n')
+        fd.write(f'# <a name="datatypes">Data Types</a>\n\n')
         for (_id, schema) in api.refs.items():
             id_without_hash = _id.replace('#', '')
             fd.write(f"## <a name=\"{id_without_hash}\">[{schema['$id']}]({schema['$id']})</a>\n\n")
@@ -75,6 +81,23 @@ def generate_docs(api):
             fd.write(_format_type(schema))
     print(f'Wrote docs to {path}')
     return path
+
+
+def _get_method_signature(method):
+    """
+    Fetch the method name in the form of function signature.
+    """
+    meth_name = method['name']
+    params_schema = method.get('params_schema')
+    result_schema = method.get('result_schema')
+    meth_title = f'{meth_name}({_format_type_short(params_schema)})'
+    deprec_reason = method.get('deprecated')
+    if result_schema:
+        meth_title += f' ⇒ {_format_type_short(result_schema)}'
+    if deprec_reason:
+        meth_title = '~~' + meth_title + '~~'
+    return meth_title
+    pass
 
 
 def _format_type(schema):
