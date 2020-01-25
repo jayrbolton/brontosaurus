@@ -213,7 +213,9 @@ def test_no_cors():
     expected = '{"jsonrpc":"2.0","id":123,"result":{"message":"hihihihihihihihihihi"}}'
     assert resp.text == expected
 
-
+# TODO test header validation
 # TODO test set and return "id"
 # TODO test cors on and off
 # TODO test port and host -- run on different ones
+# TODO test that doc file is created
+# TODO doc file path option

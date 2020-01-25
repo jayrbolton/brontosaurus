@@ -88,6 +88,34 @@ class API:
             return func
         return wrapper
 
+    def require_header(self, key, pattern=None):
+        """
+        Require an HTTP(S) header with an optionally enforced string or regex
+        pattern for the value.
+        """
+
+        def wrapper(func):
+            _id = id(func)
+            if _id not in self.methods:
+                self.methods[_id] = {}
+            if 'headers' not in self.methods[_id]:
+                self.methods[_id]['headers'] = []
+            self.methods[_id]['headers'].append((key, pattern))
+            return func
+        return wrapper
+
+    def deprecated(self, reason):
+        """
+        Mark a method as deprecated with a reason.
+        """
+        def wrapper(func):
+            _id = id(func)
+            if _id not in self.methods:
+                self.methods[_id] = {}
+            self.methods[_id]['deprecated'] = reason
+            return func
+        return wrapper
+
     def run(self, host='0.0.0.0', port=8080, development=True, cors=False, workers=None):
         """
         Run the server.

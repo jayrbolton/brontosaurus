@@ -4,6 +4,7 @@ Generate the sanic server object from a brontosaurus API object.
 import sanic
 import jsonschema.exceptions
 import traceback
+import re
 
 
 def create_sanic_server(api, workers, cors, development):
@@ -19,11 +20,19 @@ def create_sanic_server(api, workers, cors, development):
             jsonschema.validate(req_json, json_rpc2_schema)
         except jsonschema.exceptions.ValidationError as err:
             return sanic.response.json(_invalid_json_rpc_resp(req_json, err), 400)
+        headers = dict(req.headers)
         meth_name = req_json['method']
         if meth_name not in api.method_names:
             return sanic.response.json(_unknown_method_resp(req_json, meth_name), 400)
         meth_id = api.method_names[meth_name]
         meth = api.methods[meth_id]
+        # Validate the headers
+        if 'headers' in meth:
+            for (key, pattern) in meth['headers']:
+                if key not in headers:
+                    return sanic.response.json(_missing_header_resp(req_json, key))
+                if not re.match(pattern, headers[key]):
+                    return sanic.response.json(_invalid_header_resp(req_json, key, pattern))
         # Validate the parameters
         if 'params_schema' in meth:
             if req_json.get('params') is None:
@@ -35,7 +44,7 @@ def create_sanic_server(api, workers, cors, development):
         # Compute the result
         func = meth['func']
         try:
-            result = func(req_json.get('params'), dict(req.headers))
+            result = func(req_json.get('params'), headers)
         except Exception as err:
             return sanic.response.json(_server_err_resp(req_json, err), 500)
         # Validate the result
@@ -188,6 +197,30 @@ def _missing_params_resp(req_json):
         'error': {
             'code': -32602,
             'error': 'Missing params'
+        }
+    }
+    return resp
+
+
+def _missing_header_resp(req_json, key):
+    resp = {
+        'jsonrpc': '2.0',
+        'id': _get_req_id(req_json),
+        'error': {
+            'code': -32602,
+            'error': f"Header with key '{key}' required but not provided."
+        }
+    }
+    return resp
+
+
+def _invalid_header_resp(req_json, key, pattern):
+    resp = {
+        'jsonrpc': '2.0',
+        'id': _get_req_id(req_json),
+        'error': {
+            'code': -32602,
+            'error': f"Header with key '{key}' does not match the format '{pattern}'."
         }
     }
     return resp

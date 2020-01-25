@@ -3,6 +3,7 @@ Generate API documentation from an API object.
 """
 
 # TODO table of contents
+# TODO schema titles and descriptions
 
 
 def generate_docs(api):
@@ -23,21 +24,41 @@ def generate_docs(api):
             meth = api.methods[meth_id]
             params_schema = meth.get('params_schema')
             result_schema = meth.get('result_schema')
-            fd.write(f'### {meth_name}({_format_type_short(params_schema)}) ⇒ {_format_type_short(result_schema)}\n\n')
+            meth_title = f'{meth_name}({_format_type_short(params_schema)})'
+            deprec_reason = meth.get('deprecated')
+            if result_schema:
+                meth_title += f' ⇒ {_format_type_short(result_schema)}'
+            if deprec_reason:
+                meth_title = '~~' + meth_title + '~~'
+            fd.write('### ' + meth_title + '\n\n')
+            if deprec_reason:
+                fd.write(f'**This method is deprecated:** {deprec_reason}\n\n')
             fd.write(f"{meth['summary']}\n\n")
             if params_schema:
                 if '$id' in params_schema:
                     fd.write(f"**Parameters type:** [{params_schema['$id']}]({params_schema['$id']})\n\n")
                 else:
-                    fd.write(f'#### Parameters\n\n')
+                    fd.write(f'**Parameters:** ')
                     fd.write(_format_type(params_schema))
+            else:
+                fd.write(f"**No parameters**\n\n")
+            required_headers = meth.get('headers')
+            if required_headers:
+                fd.write(f"**Required headers**:\n\n")
+                for (key, pattern) in required_headers:
+                    if pattern:
+                        fd.write(f' * `{key}` must have format "`{pattern}`"\n')
+                    else:
+                        fd.write(f" * `{key}`\n")
+                fd.write("\n")
             if result_schema:
                 if '$id' in result_schema:
                     fd.write(f"**Result type:** [{result_schema['$id']}]({result_schema['$id']})\n\n")
                 else:
-                    fd.write(f'#### Result\n\n')
+                    fd.write(f'**Result:** ')
                     fd.write(_format_type(result_schema))
-            print('method', meth)
+            else:
+                fd.write(f"**No results**\n\n")
         # Write types
         fd.write(f'# Data Types\n\n')
         for (_id, schema) in api.refs.items():
@@ -53,13 +74,25 @@ def _format_type(schema):
     type_name = schema.get('type')
     if not type_name:
         return ''
-    if type_name == 'object':
+    elif type_name == 'object':
         return _format_obj_type(schema)
+    elif type_name == 'array':
+        return _format_arr_type(schema)
 
 
-def _format_obj_type(schema, indent=0):
+def _format_arr_type(schema):
+    string = f"JSON array"
+    items_type = schema.get('items')
+    if items_type:
+        string += f" of {_format_type_short(items_type)}\n\n"
+    else:
+        string += "\n\n"
+    return string
+
+
+def _format_obj_type(schema):
     string = "JSON object with properties:\n\n"
-    required = set(schema.get('required'))
+    required = set(schema.get('required', []))
     props = schema.get('properties')
     if props:
         # string += "| Property | Type | Required | Notes |\n"
@@ -72,16 +105,31 @@ def _format_obj_type(schema, indent=0):
 
 
 def _format_obj_field(prop_name, prop_type, is_required, indent=0):
+    """
+    Create an unordered list string for a property name and value inside an object type.
+    """
     string = ("  " * indent) + "* "
     desc = prop_type.get('description')
     req_text = "required" if is_required else "optional"
     desc = prop_type.get('description')
     desc = '- ' + desc if desc else ''
-    string += f'`"{prop_name}"` – {req_text} {_format_type_short(prop_type)}\n'
+    type_name = prop_type.get('type')
+    string += f'`"{prop_name}"` – {req_text}'
+    if type_name == 'object':
+        string += f' object with the following properties:\n'
+        props = prop_type.get('properties')
+        required = set(prop_type.get('required', []))
+        for (prop_name, prop_type) in props.items():
+            is_required = prop_name in required
+            string += _format_obj_field(prop_name, prop_type, is_required, indent=indent + 1)
+    else:
+        string += f' {_format_type_short(prop_type)}\n'
     return string
 
 
 def _format_type_short(typ):
+    if not typ:
+        return ''
     ref = typ.get('$ref')
     if ref:
         return f"[{ref}]({ref})"
@@ -101,6 +149,8 @@ def _format_type_short(typ):
             options = ', '.join(f'"{x}"' for x in typ['enum'])
             string += f" (must be one of {options})"
     if type_name == 'integer':
-        if typ.get('minimum'):
+        if 'minimum' in typ:
             string += f" (minimum: {typ['minimum']})"
+        if 'maximum' in typ:
+            string += f" (maximum: {typ['maximum']})"
     return string
