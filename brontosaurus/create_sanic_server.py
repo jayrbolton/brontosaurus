@@ -4,7 +4,11 @@ Generate the sanic server object from a brontosaurus API object.
 import sanic
 import jsonschema.exceptions
 import traceback
+import threading
+import multiprocessing
 import re
+
+# TODO good logging
 
 
 def create_sanic_server(api, workers, cors, development):
@@ -16,45 +20,26 @@ def create_sanic_server(api, workers, cors, development):
             req_json = req.json
         except sanic.exceptions.InvalidUsage as err:
             return sanic.response.json(_invalid_json_resp(req, err), 400)
-        try:
-            jsonschema.validate(req_json, json_rpc2_schema)
-        except jsonschema.exceptions.ValidationError as err:
-            return sanic.response.json(_invalid_json_rpc_resp(req_json, err), 400)
-        headers = dict(req.headers)
-        meth_name = req_json['method']
-        if meth_name not in api.method_names:
-            return sanic.response.json(_unknown_method_resp(req_json, meth_name), 400)
-        meth_id = api.method_names[meth_name]
-        meth = api.methods[meth_id]
-        # Validate the headers
-        if 'headers' in meth:
-            for (key, pattern) in meth['headers']:
-                if key not in headers:
-                    return sanic.response.json(_missing_header_resp(req_json, key))
-                if not re.match(pattern, headers[key]):
-                    return sanic.response.json(_invalid_header_resp(req_json, key, pattern))
-        # Validate the parameters
-        if 'params_schema' in meth:
-            if req_json.get('params') is None:
-                return sanic.response.json(_missing_params_resp(req_json), 400)
-            try:
-                jsonschema.validate(req_json.get('params'), meth['params_schema'])
-            except jsonschema.exceptions.ValidationError as err:
-                return sanic.response.json(_invalid_params_resp(req_json, err), 400)
-        # Compute the result
-        func = meth['func']
-        try:
-            result = func(req_json.get('params'), headers)
-        except Exception as err:
-            return sanic.response.json(_server_err_resp(req_json, err), 500)
-        # Validate the result
-        if development and 'result_schema' in meth:
-            jsonschema.validate(result, meth['result_schema'])
-        return sanic.response.json({
-            'jsonrpc': '2.0',
-            'id': _get_req_id(req_json),
-            'result': result
-        })
+        if isinstance(req_json, list):
+            # Handle a bulk request
+            responses = []
+            threads = []
+            resp_queue = multiprocessing.Queue()
+            for each in req_json:
+                args = (api, req, each, development, resp_queue)
+                thread = threading.Thread(target=_handle_root_resp_async, args=args, daemon=True)
+                thread.start()
+                threads.append(thread)
+            for thread in threads:
+                thread.join()
+            while resp_queue.qsize():
+                resp = resp_queue.get()
+                responses.append(resp)
+            return sanic.response.json(responses, 200)
+        else:
+            # Handle a single request
+            (resp, code) = _handle_root_resp(api, req, req_json, development)
+            return sanic.response.json(resp, code)
 
     # Handle an OPTIONS request
     @app.middleware('request')
@@ -69,7 +54,7 @@ def create_sanic_server(api, workers, cors, development):
 
     @app.exception(Exception)
     def unknown_error(req, err):
-        print(err)
+        print(err)  # TODO
         traceback.print_exc()
         return sanic.response.raw(b'', 500)
 
@@ -81,6 +66,56 @@ def create_sanic_server(api, workers, cors, development):
             res.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS'
             res.headers['Access-Control-Allow-Headers'] = '*'
     return app
+
+
+def _handle_root_resp(api, req, req_json, development):
+    """
+    Returns the JSON body of the response and the HTTP status code in a pair.
+    """
+    try:
+        jsonschema.validate(req_json, json_rpc2_schema)
+    except jsonschema.exceptions.ValidationError as err:
+        return (_invalid_json_rpc_resp(req_json, err), 400)
+    headers = dict(req.headers)
+    meth_name = req_json['method']
+    if meth_name not in api.method_names:
+        return (_unknown_method_resp(req_json, meth_name), 400)
+    meth_id = api.method_names[meth_name]
+    meth = api.methods[meth_id]
+    # Validate the headers
+    if 'headers' in meth:
+        for (key, pattern) in meth['headers']:
+            if key not in headers:
+                return (_missing_header_resp(req_json, key), 400)
+            if not re.match(pattern, headers[key]):
+                return (_invalid_header_resp(req_json, key, pattern), 400)
+    # Validate the parameters
+    if 'params_schema' in meth:
+        if req_json.get('params') is None:
+            return (_missing_params_resp(req_json), 400)
+        try:
+            jsonschema.validate(req_json.get('params'), meth['params_schema'])
+        except jsonschema.exceptions.ValidationError as err:
+            return (_invalid_params_resp(req_json, err), 400)
+    # Compute the result
+    func = meth['func']
+    try:
+        result = func(req_json.get('params'), headers)
+    except Exception as err:
+        return (_server_err_resp(req_json, err), 500)
+    # Validate the result
+    if development and 'result_schema' in meth:
+        jsonschema.validate(result, meth['result_schema'])
+    return ({
+        'jsonrpc': '2.0',
+        'id': _get_req_id(req_json),
+        'result': result
+    }, 200)
+
+
+def _handle_root_resp_async(api, req, req_json, development, resp_queue):
+    (resp, status) = _handle_root_resp(api, req, req_json, development)
+    resp_queue.put(resp)
 
 
 # A forgiving JSON Schema for JSON RPC 2.0. Does not require the "jsonrpc" or

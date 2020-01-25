@@ -213,6 +213,33 @@ def test_no_cors():
     expected = '{"jsonrpc":"2.0","id":123,"result":{"message":"hihihihihihihihihihi"}}'
     assert resp.text == expected
 
+
+def test_valid_bulk_request():
+    """
+    Basic happy path for a bulk request
+    """
+    resp = requests.post(
+        _URL,
+        data=json.dumps([{
+            'id': 1,
+            'jsonrpc': '2.0',
+            'method': 'echo',
+            'params': {
+                'message': 'hi'
+            }
+        }, {
+            'id': 2,
+            'jsonrpc': '2.0',
+            'method': 'echo',
+            'params': {
+                'message': 'bye'
+            }
+        }])
+    )
+    assert resp.ok
+    expected = '[{"jsonrpc":"2.0","id":1,"result":{"message":"hihihihihihihihihihi"}},{"jsonrpc":"2.0","id":2,"result":{"message":"byebyebyebyebyebyebyebyebyebye"}}]'  # noqa
+    assert resp.text == expected
+
 # TODO test header validation
 # TODO test set and return "id"
 # TODO test cors on and off
