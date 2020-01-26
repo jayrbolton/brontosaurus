@@ -102,35 +102,48 @@ def _get_method_signature(method):
 
 def _format_type(schema):
     type_name = schema.get('type')
-    if not type_name:
-        return ''
-    elif type_name == 'object':
+    if type_name == 'object' or 'properties' in schema or 'additionalProperties' in schema:
         return _format_obj_type(schema)
-    elif type_name == 'array':
+    elif type_name == 'array' or 'items' in schema or 'additionalItems' in schema:
         return _format_arr_type(schema)
+    else:
+        return ''
 
 
 def _format_arr_type(schema):
-    string = f"JSON array"
-    items_type = schema.get('items')
-    if items_type:
-        string += f" of {_format_type_short(items_type)}\n\n"
-    else:
-        string += "\n\n"
+    item_types = schema.get('items', [])
+    if not isinstance(item_types, list):
+        item_types = [item_types]
+    item_type_strs = [_format_type_short(t) for t in item_types]
+    string = "**JSON array**\n\n"
+    if item_type_strs:
+        string = "**JSON array** of:\n\n"
+        for t in item_type_strs:
+            string += f"1. {t}\n"
+        string += "\n"
+    addl_items = schema.get('additionalItems')
+    if addl_items is False:
+        string += "Additional items not allowed\n\n"
+    elif addl_items:
+        string += f"Additional items: {_format_type_short(addl_items)}\n\n"
     return string
 
 
 def _format_obj_type(schema):
-    string = "JSON object with properties:\n\n"
     required = set(schema.get('required', []))
     props = schema.get('properties')
+    string = "**JSON object** with properties:\n\n"
     if props:
         # string += "| Property | Type | Required | Notes |\n"
         # string += "--------------------------------------\n"
         for (prop_name, prop_type) in props.items():
             is_required = prop_name in required
             string += _format_obj_field(prop_name, prop_type, is_required, indent=0)
-    string += "\n"
+        string += "\n"
+    else:
+        string = "**JSON Object**\n\n"
+    if schema.get('additionalProperties') is False:
+        string += "No additional properties are allowed\n\n"
     return string
 
 
@@ -158,6 +171,8 @@ def _format_obj_field(prop_name, prop_type, is_required, indent=0):
 
 
 def _format_type_short(typ):
+    if typ == {}:
+        return 'anything'
     if not typ:
         return ''
     ref = typ.get('$ref')

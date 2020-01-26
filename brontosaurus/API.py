@@ -46,6 +46,8 @@ class API:
 
     def _get_ref(self, schema, method_id=None):
         _id = schema.get('$id')
+        if _id[0] != '#':
+            raise RuntimeError("Type IDs must be in the form of: `#id`")
         if not _id:
             return
         if _id in self.refs and schema != self.refs[_id]:
