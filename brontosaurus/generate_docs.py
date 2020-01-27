@@ -110,22 +110,32 @@ def _format_type(schema):
         return ''
 
 
-def _format_arr_type(schema):
-    item_types = schema.get('items', [])
-    if not isinstance(item_types, list):
-        item_types = [item_types]
-    item_type_strs = [_format_type_short(t) for t in item_types]
+def _format_arr_type(schema, indent=0):
     string = "**JSON array**\n\n"
+    item_type_strs = _format_arr_items(schema)
     if item_type_strs:
-        string = "**JSON array** of:\n\n"
-        for t in item_type_strs:
-            string += f"1. {t}\n"
+        string = "**JSON array** where:\n\n"
+        string += item_type_strs
         string += "\n"
+    return string
+
+
+def _format_arr_items(schema, indent=0):
+    items = schema.get('items')
+    string = ""
+    if isinstance(items, list):
+        item_type_strs = [_format_type_short(t) for t in items]
+        if item_type_strs:
+            for (idx, t) in enumerate(item_type_strs):
+                string += (" " * indent) + f"* Item {idx} must be {t}\n"
+    elif items:
+        typ = _format_type_short(items)
+        string += (" " * indent) + f"* Items must be {typ}\n"
     addl_items = schema.get('additionalItems')
     if addl_items is False:
-        string += "Additional items not allowed\n\n"
+        string += (" " * indent) + "* No additional items are allowed\n"
     elif addl_items:
-        string += f"Additional items: {_format_type_short(addl_items)}\n\n"
+        string += (" " * indent) + f"* Additional items must be: {_format_type_short(addl_items)}\n"
     return string
 
 
@@ -134,14 +144,12 @@ def _format_obj_type(schema):
     props = schema.get('properties')
     string = "**JSON object** with properties:\n\n"
     if props:
-        # string += "| Property | Type | Required | Notes |\n"
-        # string += "--------------------------------------\n"
         for (prop_name, prop_type) in props.items():
             is_required = prop_name in required
             string += _format_obj_field(prop_name, prop_type, is_required, indent=0)
         string += "\n"
     else:
-        string = "**JSON Object**\n\n"
+        string = "**JSON object**\n\n"
     if schema.get('additionalProperties') is False:
         string += "No additional properties are allowed\n\n"
     return string
@@ -158,13 +166,16 @@ def _format_obj_field(prop_name, prop_type, is_required, indent=0):
     desc = '- ' + desc if desc else ''
     type_name = prop_type.get('type')
     string += f'`"{prop_name}"` – {req_text}'
-    if type_name == 'object':
+    if type_name == 'object':   # TODO _is_obj()
         string += f' object with the following properties:\n'
         props = prop_type.get('properties')
         required = set(prop_type.get('required', []))
         for (prop_name, prop_type) in props.items():
             is_required = prop_name in required
             string += _format_obj_field(prop_name, prop_type, is_required, indent=indent + 1)
+    elif _is_array(prop_type):
+        string += f' array where\n'
+        string += _format_arr_items(prop_type, indent + 1)
     else:
         string += f' {_format_type_short(prop_type)}\n'
     return string
@@ -172,7 +183,7 @@ def _format_obj_field(prop_name, prop_type, is_required, indent=0):
 
 def _format_type_short(typ):
     if typ == {}:
-        return 'anything'
+        return 'any type'
     if not typ:
         return ''
     ref = typ.get('$ref')
@@ -199,3 +210,8 @@ def _format_type_short(typ):
         if 'maximum' in typ:
             string += f" (maximum: {typ['maximum']})"
     return string
+
+
+def _is_array(typ):
+    # TODO
+    return typ.get('type') == 'array' or 'items' in typ or 'additionalItems' in typ

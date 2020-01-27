@@ -38,6 +38,19 @@ api.register({
 })
 
 api.register({
+    '$id': '#obj-array-items-no-additional',
+    "description": "array of items with no additionalItems inside obj",
+    "type": "object",
+    "properties": {
+        "arr": {
+            "type": "array",
+            "items": [{}, {}, {}],
+            "additionalItems": False
+        }
+    }
+})
+
+api.register({
     '$id': '#array-items-no-items-no-additional',
     "description": "additionalItems as false without items",
     "additionalItems": False
