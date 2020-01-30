@@ -24,10 +24,15 @@ pet = api.register({
     'required': ['id', 'category', 'name', 'status'],
     'properties': {
         'id': {
-            'type': 'integer'
+            'type': 'integer',
+            'examples': [0, 1, 2]
+        },
+        'category': {
+            '$ref': '#category'
         },
         'name': {
-            'type': 'string'
+            'type': 'string',
+            'examples': ['Buster', 'Lil Doof']
         },
         'photoUrls': {
             'type': 'array',
@@ -35,6 +40,7 @@ pet = api.register({
                 'type': 'string',
                 'format': 'uri'
             },
+            'examples': [['https://spacejam.com/img/p-jamlogo.gif']]
         },
         'tags': {
             'type': 'array',

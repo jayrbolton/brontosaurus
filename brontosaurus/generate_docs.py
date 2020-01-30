@@ -1,9 +1,7 @@
 """
 Generate API documentation from an API object.
 """
-
-# TODO table of contents
-# TODO schema titles and descriptions
+import json
 
 
 def generate_docs(api):
@@ -20,18 +18,20 @@ def generate_docs(api):
         fd.write(f'{api.desc}\n\n')
         # Table of contents
         fd.write(f'## Table of Contents\n\n')
-        fd.write(f'[Methods](#methods) ({len(api.methods)} total)\n')
-        for (_id, meth) in api.methods.items():
-            deprec_reason = meth.get('deprecated')
-            if deprec_reason:
-                fd.write(f'* ~~[{meth["name"]}](#{meth["name"]})~~\n')
-            else:
-                fd.write(f'* [{meth["name"]}](#{meth["name"]})\n')
-        fd.write('\n')
-        fd.write(f'[Data Types](#datatypes) ({len(api.refs)} total)\n')
-        for (_id, schema) in api.refs.items():
-            fd.write(f'* [{_id}]({_id})\n')
-        fd.write('\n')
+        if api.methods:
+            fd.write(f'[Methods](#methods) ({len(api.methods)} total)\n')
+            for (_id, meth) in api.methods.items():
+                deprec_reason = meth.get('deprecated')
+                if deprec_reason:
+                    fd.write(f'* ~~[{meth["name"]}](#{meth["name"]})~~\n')
+                else:
+                    fd.write(f'* [{meth["name"]}](#{meth["name"]})\n')
+            fd.write('\n')
+        if api.refs:
+            fd.write(f'[Data Types](#datatypes) ({len(api.refs)} total)\n')
+            for (_id, schema) in api.refs.items():
+                fd.write(f'* [{_id}]({_id})\n')
+            fd.write('\n')
         # Write methods
         fd.write(f'## <a name="methods">Methods</a>\n\n')
         for (meth_name, meth_id) in api.method_names.items():
@@ -93,54 +93,101 @@ def _format_keyval(key, val, parent, obj_indent):
     """
     if key == '$id' or key == 'type' or key == '$ref':
         return False
+    elif key == 'enum':
+        enum_names = ', '.join(f'`{json.dumps(v)}`' for v in val)
+        return f'Must be one of: {enum_names}\n'
+    elif key == 'examples':
+        ex = ', '.join(f'`{json.dumps(v)}`' for v in val)
+        return f'Examples: {ex}\n'
     elif key == 'required':
+        if not isinstance(val, list):
+            val = [val]
         prop_names = ', '.join(val)
-        return f'Required fields: **{prop_names}**'
+        return f'Required fields: **{prop_names}**\n'
     elif key == 'properties':
-        return 'Properties:\n' + _format_obj_props(val, obj_indent + 1, parent)
+        return '**Properties:**\n' + _format_obj_props(val, obj_indent + 1, parent)
     elif key == 'additionalProperties':
         if val is False:
-            return 'No extra properties are allowed'
-    elif key == 'items':
-        return f'**items**:\n{_format_generic_json(val, obj_indent + 1)}'
+            return 'No extra properties allowed\n'
+        elif val is True:
+            return 'Additional properties are allowed\n'
+        elif val:
+            return '**Additional properties**:\n' + _format_generic_json(val, obj_indent + 1, parent) + '\n'
+    elif key == 'additionalItems' and val is False:
+        if val is False:
+            return 'No extra elements allowed\n'
+        elif val is True:
+            return 'Additional elements are allowed\n'
+        elif val:
+            return '**Additional elements**:\n' + _format_generic_json(val, obj_indent + 1, parent) + '\n'
+    elif (key == 'allOf' or key == 'anyOf') and val:
+        if key == 'allOf':
+            string = '**Must match all of**:\n'
+        else:
+            string = '**Must match any of**:\n'
+        indent = obj_indent + 1
+        for typ in val:
+            string += ('  ' * indent) + '1. ' + _format_generic_json(val, indent + 1, parent)
+        return string
+    elif key == 'patternProperties':
+        return '**Pattern properties:**\n' + _format_obj_props(val, obj_indent + 1, parent)
+    elif key == 'items' and isinstance(val, list) and val:
+        string = f'Elements:\n'
+        indent = obj_indent + 1
+        for (idx, typ) in enumerate(val):
+            string += ('  ' * indent) + f'* Item {idx}: ' + _format_generic_json(typ, indent + 1, parent)
+        return string
+    elif key == 'description':
+        return f'Description: {val}\n'
 
 
 def _format_obj_props(props, indent, parent):
+    """
+    Format a set of property name and type values for an object schema.
+    """
     string = ''
     for (prop, typ) in props.items():
-        string += ('  ' * indent) + f'* `"{prop}"` – {_format_generic_json(typ, indent + 1, prop, parent)}\n'
+        string += ('  ' * indent) + f'* `"{prop}"` – {_format_generic_json(typ, indent + 1, prop, parent)}'
     return string
 
 
 def _format_obj_prefix(schema, indent, parent, prop_name):
     """
     Create a string prefix (possibly None) for a schema object.
+    Usually this will show the schema's type and whether it is required in any parent object.
     """
     if not isinstance(schema, dict):
         return None
     string = ''
+    typ = schema.get('type')
     if parent:
         required = set(parent.get('required', set()))
         if prop_name and prop_name in required:
-            string += 'required '
+            string = 'required '
     if schema.get('$ref'):
         ref = schema['$ref']
-        return f"[{ref}]({ref})"
-    if _is_obj(schema):
-        string = 'JSON object'
-        return string
-    if _is_array(schema):
-        return 'JSON array'
-    typ = schema.get('type')
-    if typ:
-        return typ
+        string += f"**[{ref}]({ref})**"
+    elif _is_obj(schema):
+        string += 'JSON object'
+    elif _is_array(schema):
+        string += 'JSON array'
+    elif typ:
+        string += typ
+    return string
 
 
 def _format_generic_json(data, obj_indent=0, prop_name=None, parent=None):
     """
     Render any JSON serializable data structure as bulleted markdown.
+    Special formatting for JSON schemas are injected using:
+    - _format_keyval
+    - _format_obj_prefix
     """
     string = ''
+    if isinstance(data, dict) and not data:
+        return 'any type\n'
+    elif isinstance(data, list) and not data:
+        return 'empty array\n'
     prefix = _format_obj_prefix(data, obj_indent, parent, prop_name)
     if prefix:
         string += prefix + '\n'
@@ -151,14 +198,14 @@ def _format_generic_json(data, obj_indent=0, prop_name=None, parent=None):
             if keyval is False:
                 continue
             if keyval:
-                string += ('  ' * obj_indent) + '* ' + keyval + '\n'
+                string += ('  ' * obj_indent) + '* ' + keyval
                 continue
-            string += ('  ' * obj_indent) + f'* **{key}** – '
+            string += ('  ' * obj_indent) + f'* **{key}**: '
             if isinstance(val, dict):
                 if not val:
-                    string += 'empty object\n'
+                    string += 'any type\n'
                 else:
-                    string += f'object of:\n{sub}'
+                    string += f'\n{sub}'
             elif isinstance(val, list):
                 if not val:
                     string += f'empty array\n'
@@ -168,14 +215,14 @@ def _format_generic_json(data, obj_indent=0, prop_name=None, parent=None):
                 string += f'{sub}\n'
         return string
     elif isinstance(data, list):
-        for val in data:
+        for (idx, val) in enumerate(data):
             sub = _format_generic_json(val, obj_indent + 1, prop_name, parent)
-            string += ('  ' * obj_indent) + '1. '
+            string += ('  ' * obj_indent) + '* '
             if isinstance(val, dict):
                 if val:
-                    string += f'object of:\n{sub}'
+                    string += f'\n{sub}'
                 else:
-                    string += 'empty object\n'
+                    string += 'any type\n'
             elif isinstance(val, list):
                 if val:
                     string += f'array of:\n{sub}'
@@ -194,147 +241,64 @@ def _get_method_signature(method):
     """
     meth_name = method['name']
     params_schema = method.get('params_schema')
-    result_schema = method.get('result_schema')
     meth_title = f'{meth_name}({_format_type_short(params_schema)})'
-    deprec_reason = method.get('deprecated')
+    result_schema = method.get('result_schema')
     if result_schema:
         meth_title += f' ⇒ {_format_type_short(result_schema)}'
+    deprec_reason = method.get('deprecated')
     if deprec_reason:
         meth_title = '~~' + meth_title + '~~'
     return meth_title
-    pass
 
 
-# def _format_type(schema):
-#     type_name = schema.get('type')
-#     if type_name == 'object' or 'properties' in schema or 'additionalProperties' in schema:
-#         return _format_obj_type(schema)
-#     elif type_name == 'array' or 'items' in schema or 'additionalItems' in schema:
-#         return _format_arr_type(schema)
-#     else:
-#         return ''
-
-
-def _format_arr_type(schema, indent=0):
-    string = "**JSON array**\n\n"
-    item_type_strs = _format_arr_items(schema)
-    if item_type_strs:
-        string = "**JSON array** where:\n\n"
-        string += item_type_strs
-        string += "\n"
-    return string
-
-
-def _format_arr_items(schema, indent=0):
-    items = schema.get('items')
-    string = ""
-    if isinstance(items, list):
-        item_type_strs = [_format_type_short(t) for t in items]
-        if item_type_strs:
-            for (idx, t) in enumerate(item_type_strs):
-                string += (" " * indent) + f"* Item {idx} must be {t}\n"
-    elif items:
-        typ = _format_type_short(items)
-        string += (" " * indent) + f"* Items must be {typ}\n"
-    addl_items = schema.get('additionalItems')
-    if addl_items is False:
-        string += (" " * indent) + "* No extra items are allowed\n"
-    elif addl_items:
-        string += (" " * indent) + f"* Additional items must be: {_format_type_short(addl_items)}\n"
-    return string
-
-
-# def _format_obj_type(schema):
-#     required = set(schema.get('required', []))
-#     props = schema.get('properties')
-#     string = "**JSON object** with properties:\n\n"
-#     if props:
-#         for (prop_name, prop_type) in props.items():
-#             is_required = prop_name in required
-#             string += _format_obj_field(prop_name, prop_type, is_required, indent=0)
-#         string += "\n"
-#     else:
-#         string = "**JSON object**\n\n"
-#     if schema.get('additionalProperties') is False:
-#         string += "No extra properties are allowed\n\n"
-#     return string
-
-
-# def _format_obj_field(prop_name, prop_type, is_required, indent=0):
-#     """
-#     Create an unordered list string for a property name and value inside an object type.
-#     """
-#     string = ("  " * indent) + "* "
-#     desc = prop_type.get('description')
-#     req_text = "required" if is_required else "optional"
-#     desc = prop_type.get('description')
-#     desc = '- ' + desc if desc else ''
-#     type_name = prop_type.get('type')
-#     string += f'`"{prop_name}"` – {req_text}'
-#     if type_name == 'object':   # TODO _is_obj()
-#         string += f' object with the following properties:\n'
-#         props = prop_type.get('properties')
-#         required = set(prop_type.get('required', []))
-#         for (prop_name, prop_type) in props.items():
-#             is_required = prop_name in required
-#             string += _format_obj_field(prop_name, prop_type, is_required, indent=indent + 1)
-#     elif _is_array(prop_type):
-#         string += f' array where\n'
-#         string += _format_arr_items(prop_type, indent + 1)
-#     else:
-#         string += f' {_format_type_short(prop_type)}\n'
-#     return string
-
-
-def _format_type_short(typ):
-    if typ == {}:
+def _format_type_short(schema):
+    """
+    Return a short type name for a schema, with no linebreaks or inner details
+    Examples: "object", "array", "#type_id", "integer", "string"
+    """
+    if schema == {}:
         return 'any type'
-    if not typ:
+    if not schema:
         return ''
-    ref = typ.get('$ref')
+    ref = schema.get('$ref')
     if ref:
         return f"[{ref}]({ref})"
-    _id = typ.get('$id')
+    _id = schema.get('$id')
     if _id:
         return f"[{_id}]({_id})"
-    type_name = typ.get('type')
+    type_name = schema.get('type')
     if not type_name:
         return ''
     if type_name == 'array':
-        return "array of " + _format_type_short(typ['items'])
+        return "array of " + _format_type_short(schema['items'])
     string = f"{type_name}"
     if type_name == 'string':
-        if typ.get('format'):
-            string += f" (format: {typ.get('format')})"
-        if typ.get('enum'):
-            options = ', '.join(f'"{x}"' for x in typ['enum'])
+        if schema.get('format'):
+            string += f" (format: {schema.get('format')})"
+        if schema.get('enum'):
+            options = ', '.join(f'"{x}"' for x in schema['enum'])
             string += f" (must be one of {options})"
     if type_name == 'integer':
-        if 'minimum' in typ:
-            string += f" (minimum: {typ['minimum']})"
-        if 'maximum' in typ:
-            string += f" (maximum: {typ['maximum']})"
+        if 'minimum' in schema:
+            string += f" (minimum: {schema['minimum']})"
+        if 'maximum' in schema:
+            string += f" (maximum: {schema['maximum']})"
     return string
 
 
-def _is_array(typ):
-    if not isinstance(typ, dict):
-        return False
-    return typ.get('type') == 'array' or 'items' in typ or 'additionalItems' in typ
-
-
-def _is_obj(typ):
-    if not isinstance(typ, dict):
-        return False
-    return typ.get('type') == 'object' or 'properties' in typ or 'additionalProperties' in typ
-
-
-def _format_obj_type(schema, indent=0):
+def _is_array(schema):
     """
-    Within a bulleted list, return special object type formatting
+    Is a JSON Schema an array type?
     """
-    # required = set(schema.get('required', set()))
-    string = 'JSON object of:\n'
-    for (key, val) in schema.get('properties', {}).items():
-        string += ('  ' * indent) + f'* `"{key}"` – val todo'
-    return string
+    if not isinstance(schema, dict):
+        return False
+    return schema.get('type') == 'array' or 'items' in schema or 'additionalItems' in schema
+
+
+def _is_obj(schema):
+    """
+    Is a JSON Schema an object type?
+    """
+    if not isinstance(schema, dict):
+        return False
+    return schema.get('type') == 'object' or 'properties' in schema or 'additionalProperties' in schema

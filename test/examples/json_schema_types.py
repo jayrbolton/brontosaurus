@@ -2,7 +2,7 @@ from brontosaurus import API
 
 desc = """
 This is a non-server that is for testing documentation generation of all the
-variations of draf-07 JSON Schema type annotations.
+variations of draft-07 JSON Schema type annotations.
 """
 
 # TODO array with additional item crap nested inside an object
@@ -75,7 +75,6 @@ api.register({
     "items": [{"type": "integer"}],
 })
 
-# TODO
 api.register({
     '$id': '#obj-no-addl-props',
     "description": "additionalProperties being false does not allow other properties",
@@ -84,7 +83,6 @@ api.register({
     "additionalProperties": False
 })
 
-# TODO
 api.register({
     '$id': '#obj-non-ascii-pattern',
     "description": "non-ASCII pattern with additionalProperties",
@@ -92,7 +90,6 @@ api.register({
     "additionalProperties": False
 })
 
-# TODO
 api.register({
     '$id': '#obj-additional-props-schema',
     "description": "additionalProperties allows a schema which should validate",
@@ -100,21 +97,18 @@ api.register({
     "additionalProperties": {"type": "boolean"}
 })
 
-# TODO
 api.register({
     '$id': '#obj-only-additional-props',
     "description": "additionalProperties can exist by itself",
     "additionalProperties": {"type": "boolean"}
 })
 
-# TODO
 api.register({
     '$id': '#obj-basic',
     "description": "additionalProperties are allowed by default",
     "properties": {"foo": {}, "bar": {}},
 })
 
-# TODO
 api.register({
     '$id': '#obj-allOf',
     "description": "additionalProperties should not look in applicators",
