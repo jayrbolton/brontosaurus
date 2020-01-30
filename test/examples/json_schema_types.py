@@ -10,6 +10,19 @@ variations of draf-07 JSON Schema type annotations.
 api = API("JSON Schema Types Test", desc)
 
 api.register({
+    '$id': '#primitive-string',
+    'type': 'string',
+    'format': 'email'
+})
+
+api.register({
+    '$id': '#primitive-integer',
+    'type': 'integer',
+    'minimum': 10,
+    'maximum': 100
+})
+
+api.register({
     '$id': '#array-empty-items',
     'items': {}
 })

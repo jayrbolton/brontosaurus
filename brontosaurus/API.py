@@ -23,7 +23,7 @@ class API:
         # Map names to JSON schemas for generating documentation
         self.refs = {}  # type: dict
         # Map schema reference ids to a list of method IDs that use them
-        self.methods_using = {}
+        self.methods_using = {}  # type: dict
         return
 
     def method(self, name, summary):
@@ -46,10 +46,10 @@ class API:
 
     def _get_ref(self, schema, method_id=None):
         _id = schema.get('$id')
-        if _id[0] != '#':
-            raise RuntimeError("Type IDs must be in the form of: `#id`")
         if not _id:
             return
+        if _id[0] != '#':
+            raise RuntimeError("Type IDs must be in the form of: `#id`")
         if _id in self.refs and schema != self.refs[_id]:
             msg = f"Schema with $id '{_id}' has different definitions"
             raise brontosaurus.exceptions.SchemaReferenceMismatch(msg)
