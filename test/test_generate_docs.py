@@ -1,7 +1,7 @@
 from brontosaurus.generate_docs import generate_docs
 
-# from test.examples.pet_shop import api
-from test.examples.json_schema_types import api
+from test.examples.pet_shop import api
+# from test.examples.json_schema_types import api
 
 
 def test_docs():

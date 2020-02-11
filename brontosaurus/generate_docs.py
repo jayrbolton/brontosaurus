@@ -48,7 +48,7 @@ def generate_docs(api):
                 if '$id' in params_schema:
                     fd.write(f"**Parameters type:** [{params_schema['$id']}]({params_schema['$id']})\n\n")
                 else:
-                    fd.write(f'**Parameters:**\n')
+                    fd.write(f'**Parameters:** ')
                     fd.write(_format_generic_json(params_schema) + '\n')
             else:
                 fd.write(f"**No parameters**\n\n")
@@ -65,7 +65,7 @@ def generate_docs(api):
                 if '$id' in result_schema:
                     fd.write(f"**Result type:** [{result_schema['$id']}]({result_schema['$id']})\n\n")
                 else:
-                    fd.write(f'**Result:**\n')
+                    fd.write(f'**Result:** ')
                     fd.write(_format_generic_json(result_schema) + '\n')
             else:
                 fd.write(f"**No results**\n\n")
@@ -105,32 +105,32 @@ def _format_keyval(key, val, parent, obj_indent):
         prop_names = ', '.join(val)
         return f'Required fields: **{prop_names}**\n'
     elif key == 'properties':
-        return '**Properties:**\n' + _format_obj_props(val, obj_indent + 1, parent)
+        return 'Properties:\n' + _format_obj_props(val, obj_indent + 1, parent)
     elif key == 'additionalProperties':
         if val is False:
             return 'No extra properties allowed\n'
         elif val is True:
             return 'Additional properties are allowed\n'
         elif val:
-            return '**Additional properties**:\n' + _format_generic_json(val, obj_indent + 1, parent) + '\n'
-    elif key == 'additionalItems' and val is False:
+            return 'Additional properties:\n' + _format_generic_json(val, obj_indent + 1, parent) + '\n'
+    elif key == 'additionalItems':
         if val is False:
             return 'No extra elements allowed\n'
         elif val is True:
             return 'Additional elements are allowed\n'
         elif val:
-            return '**Additional elements**:\n' + _format_generic_json(val, obj_indent + 1, parent) + '\n'
+            return 'Additional elements:\n' + _format_generic_json(val, obj_indent + 1, parent) + '\n'
     elif (key == 'allOf' or key == 'anyOf') and val:
         if key == 'allOf':
-            string = '**Must match all of**:\n'
+            string = 'Must match all of:\n'
         else:
-            string = '**Must match any of**:\n'
+            string = 'Must match any of:\n'
         indent = obj_indent + 1
         for typ in val:
             string += ('  ' * indent) + '1. ' + _format_generic_json(val, indent + 1, parent)
         return string
     elif key == 'patternProperties':
-        return '**Pattern properties:**\n' + _format_obj_props(val, obj_indent + 1, parent)
+        return 'Pattern properties:\n' + _format_obj_props(val, obj_indent + 1, parent)
     elif key == 'items' and isinstance(val, list) and val:
         string = f'Elements:\n'
         indent = obj_indent + 1
@@ -200,12 +200,12 @@ def _format_generic_json(data, obj_indent=0, prop_name=None, parent=None):
             if keyval:
                 string += ('  ' * obj_indent) + '* ' + keyval
                 continue
-            string += ('  ' * obj_indent) + f'* **{key}**: '
+            string += ('  ' * obj_indent) + f'* {key}: '
             if isinstance(val, dict):
                 if not val:
                     string += 'any type\n'
                 else:
-                    string += f'\n{sub}'
+                    string += f'{sub}'
             elif isinstance(val, list):
                 if not val:
                     string += f'empty array\n'
