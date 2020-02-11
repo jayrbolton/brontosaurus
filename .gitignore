@@ -1,3 +1,4 @@
 /env/
 __pycache__/
 /API.md
+*.egg-info/
