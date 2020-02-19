@@ -24,6 +24,7 @@ class API:
         self.refs = {}  # type: dict
         # Map schema reference ids to a list of method IDs that use them
         self.methods_using = {}  # type: dict
+        self.subpaths = {}  # type: dict
         return
 
     def method(self, name, summary):
@@ -127,6 +128,15 @@ class API:
             self.methods[_id]['deprecated'] = reason
             return func
         return wrapper
+
+    def subpath(self, path, title, desc):
+        """
+        Create a nested API under a subpath.
+        """
+        if path in self.subpaths:
+            raise RuntimeError(f"Subpath already taken: `{path}`")
+        self.subpaths[path] = API(title, desc)
+        return self.subpaths[path]
 
     def run(self, host='0.0.0.0', port=8080, development=True, cors=False, workers=None):
         """

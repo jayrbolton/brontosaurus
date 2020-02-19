@@ -12,10 +12,14 @@ import re
 
 
 def create_sanic_server(api, workers, cors, development):
-    app = sanic.Sanic()
+    app = sanic.Sanic(strict_slashes=False)
+    methods = ['OPTIONS', 'PUT', 'POST', 'GET', 'DELETE']
 
-    @app.route("/", methods=['OPTIONS', 'PUT', 'POST', 'GET', 'DELETE'])
-    def root_route(req):
+    @app.route("/", methods=methods)
+    @app.route("/<subpath:path>", methods=methods)
+    def root(req, subpath=None):
+        if req.method == 'OPTIONS':
+            return sanic.response.raw(b'')
         try:
             req_json = req.json
         except sanic.exceptions.InvalidUsage as err:
@@ -26,7 +30,7 @@ def create_sanic_server(api, workers, cors, development):
             threads = []
             resp_queue = multiprocessing.Queue()
             for each in req_json:
-                args = (api, req, each, development, resp_queue)
+                args = (api, req, each, development, resp_queue, subpath)
                 thread = threading.Thread(target=_handle_root_resp_async, args=args, daemon=True)
                 thread.start()
                 threads.append(thread)
@@ -38,7 +42,7 @@ def create_sanic_server(api, workers, cors, development):
             return sanic.response.json(responses, 200)
         else:
             # Handle a single request
-            (resp, code) = _handle_root_resp(api, req, req_json, development)
+            (resp, code) = _handle_root_resp(api, req, req_json, development, subpath)
             return sanic.response.json(resp, code)
 
     # Handle an OPTIONS request
@@ -68,20 +72,29 @@ def create_sanic_server(api, workers, cors, development):
     return app
 
 
-def _handle_root_resp(api, req, req_json, development):
+def _handle_root_resp(api, req, req_json, development, path):
     """
     Returns the JSON body of the response and the HTTP status code in a pair.
     """
     try:
         jsonschema.validate(req_json, json_rpc2_schema)
     except jsonschema.exceptions.ValidationError as err:
+        print(err)
         return (_invalid_json_rpc_resp(req_json, err), 400)
     headers = dict(req.headers)
     meth_name = req_json['method']
-    if meth_name not in api.method_names:
+    if path:
+        print("path present", path)
+        if path not in api.subpaths:
+            return (sanic.response.raw(b''), 404)
+        api_handler = api.subpaths[path]
+    else:
+        print('path not present')
+        api_handler = api
+    if meth_name not in api_handler.method_names:
         return (_unknown_method_resp(req_json, meth_name), 400)
-    meth_id = api.method_names[meth_name]
-    meth = api.methods[meth_id]
+    meth_id = api_handler.method_names[meth_name]
+    meth = api_handler.methods[meth_id]
     # Validate the headers
     if 'headers' in meth:
         for (key, pattern) in meth['headers']:
@@ -113,8 +126,8 @@ def _handle_root_resp(api, req, req_json, development):
     }, 200)
 
 
-def _handle_root_resp_async(api, req, req_json, development, resp_queue):
-    (resp, status) = _handle_root_resp(api, req, req_json, development)
+def _handle_root_resp_async(api, req, req_json, development, resp_queue, path):
+    (resp, status) = _handle_root_resp(api, req, req_json, development, path)
     resp_queue.put(resp)
 
 
