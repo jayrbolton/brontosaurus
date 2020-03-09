@@ -138,12 +138,13 @@ class API:
         self.subpaths[path] = API(title, desc)
         return self.subpaths[path]
 
-    def run(self, host='0.0.0.0', port=8080, development=True, cors=False, workers=None):
+    def run(self, host='0.0.0.0', port=8080, development=True, cors=False, workers=2, doc_path='API.md'):
         """
         Run the server.
         """
         if not workers:
             workers = multiprocessing.cpu_count()
         app = create_sanic_server(self, workers, cors, development)
-        generate_docs(self)
+        if development:
+            generate_docs(self, doc_path)
         app.run(host=host, port=port, workers=workers)

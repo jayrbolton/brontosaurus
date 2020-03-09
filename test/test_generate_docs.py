@@ -5,4 +5,4 @@ from test.examples.pet_shop import api
 
 
 def test_docs():
-    generate_docs(api)
+    generate_docs(api, 'test/examples/pet_shop_api.md')

@@ -4,11 +4,10 @@ Generate API documentation from an API object.
 import json
 
 
-def generate_docs(api):
+def generate_docs(api, path):
     """
     Generate documentation from an API object.
     """
-    path = 'API.md'
     with open(path, 'w') as fd:
         fd.write('')
     with open(path, 'a') as fd:
