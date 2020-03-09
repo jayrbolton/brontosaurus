@@ -57,9 +57,7 @@ def _wait_for_service():
 
 
 def setup_module(module):
-    kwargs = {
-        'workers': 1
-    }
+    kwargs = {'workers': 1}
     proc = multiprocessing.Process(target=api.run, kwargs=kwargs, daemon=True)
     proc.start()
     _wait_for_service()

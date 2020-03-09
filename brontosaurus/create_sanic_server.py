@@ -2,17 +2,90 @@
 Generate the sanic server object from a brontosaurus API object.
 """
 import sanic
+from sanic.log import error_logger
 import jsonschema.exceptions
 import traceback
 import threading
 import multiprocessing
 import re
+import sys
+import os
 
-# TODO good logging
+
+def _init_log_config(development, log_path):
+    level = "DEBUG" if development else "WARNING"
+    return {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'loggers': {
+            "sanic.root": {
+                "level": level,
+                "handlers": ["console", "rot_file"]
+            },
+            "sanic.error": {
+                "level": level,
+                "handlers": ["error_console", "rot_file"],
+                "propagate": True,
+                "qualname": "sanic.error",
+            },
+            "sanic.access": {
+                "level": level,
+                "handlers": ["access_console", "rot_file_access"],
+                "propagate": True,
+                "qualname": "sanic.access",
+            },
+        },
+        'handlers': {
+            "rot_file": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "formatter": "generic",
+                "filename": log_path,
+                "maxBytes": 1048576,
+                "backupCount": 3
+            },
+            "rot_file_access": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "formatter": "access",
+                "filename": log_path,
+                "maxBytes": 1048576,
+                "backupCount": 3
+            },
+            "console": {
+                "class": "logging.StreamHandler",
+                "formatter": "generic",
+                "stream": sys.stdout,
+            },
+            "error_console": {
+                "class": "logging.StreamHandler",
+                "formatter": "generic",
+                "stream": sys.stderr,
+            },
+            "access_console": {
+                "class": "logging.StreamHandler",
+                "formatter": "access",
+                "stream": sys.stdout,
+            },
+        },
+        'formatters': {
+            "generic": {
+                "format": "%(asctime)s %(levelname)-8s %(message)s",
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+                "class": "logging.Formatter",
+            },
+            "access": {
+                "format": "%(asctime)s %(levelname)-8s %(host)s %(request)s %(message)s-> %(status)d",
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+                "class": "logging.Formatter",
+            },
+        },
+    }
 
 
-def create_sanic_server(api, workers, cors, development):
-    app = sanic.Sanic(strict_slashes=False)
+def create_sanic_server(api, workers, cors, development, log_path=None):
+    if not log_path:
+        log_path = os.path.join('tmp', 'app.log')
+        os.makedirs('tmp', exist_ok=True)
+    app = sanic.Sanic(strict_slashes=False, log_config=_init_log_config(development, log_path))
     methods = ['OPTIONS', 'PUT', 'POST', 'GET', 'DELETE']
 
     @app.route("/", methods=methods)
@@ -58,8 +131,8 @@ def create_sanic_server(api, workers, cors, development):
 
     @app.exception(Exception)
     def unknown_error(req, err):
-        print(err)  # TODO
-        traceback.print_exc()
+        error_logger.error(err)
+        error_logger.error(traceback.format_exc())
         return sanic.response.raw(b'', 500)
 
     if cors:
@@ -79,17 +152,16 @@ def _handle_root_resp(api, req, req_json, development, path):
     try:
         jsonschema.validate(req_json, json_rpc2_schema)
     except jsonschema.exceptions.ValidationError as err:
-        print(err)
+        error_logger.debug(err)
         return (_invalid_json_rpc_resp(req_json, err), 400)
     headers = dict(req.headers)
     meth_name = req_json['method']
     if path:
-        print("path present", path)
+        print('HAS PATH', path)
         if path not in api.subpaths:
             return (sanic.response.raw(b''), 404)
         api_handler = api.subpaths[path]
     else:
-        print('path not present')
         api_handler = api
     if meth_name not in api_handler.method_names:
         return (_unknown_method_resp(req_json, meth_name), 400)

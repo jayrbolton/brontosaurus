@@ -2,6 +2,7 @@
 Generate API documentation from an API object.
 """
 import json
+from sanic.log import logger
 
 
 def generate_docs(api, path):
@@ -82,7 +83,6 @@ def generate_docs(api, path):
                     method_names_str = ', '.join(f"[{n}](#{n})" for n in method_names)
                     fd.write(f"Methods using this type: {method_names_str}\n\n")
             fd.write(_format_generic_json(schema) + '\n')
-    print(f'Wrote docs to {path}')
     return path
 
 

@@ -15,9 +15,7 @@ Some benefits:
 * Automatically validates responses during development/test mode
 * Handles binary file uploads and responses
 
-It is opinionated but customizable. The APIs are not restful, but instead use
-the [JSON RPC 2.0](https://www.jsonrpc.org/specification) specification (for
-better or worse).
+It is opinionated but customizable. The APIs are not resource-based, but instead use a method-call style from [JSON RPC 2.0](https://www.jsonrpc.org/specification) specification (for better or worse).
 
 **View a [quick code example](test/examples/pet_shop)** along with its **[auto-generated documentation](test/examples/pet_shop_api.md)**.
 

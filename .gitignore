@@ -2,3 +2,4 @@
 __pycache__/
 /API.md
 *.egg-info/
+/tmp/

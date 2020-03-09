@@ -1,4 +1,5 @@
 import multiprocessing
+import os
 import brontosaurus.exceptions
 from brontosaurus.create_sanic_server import create_sanic_server
 from brontosaurus.generate_docs import generate_docs
@@ -144,7 +145,10 @@ class API:
         """
         if not workers:
             workers = multiprocessing.cpu_count()
-        app = create_sanic_server(self, workers, cors, development)
         if development:
             generate_docs(self, doc_path)
-        app.run(host=host, port=port, workers=workers)
+            # Print log messages immediately without buffering them (slower)
+            os.environ['PYTHONUNBUFFERED'] = '1'
+            print('Running in development mode')  # TODO
+        app = create_sanic_server(self, workers, cors, development)
+        app.run(host=host, port=port, workers=workers, access_log=development)
