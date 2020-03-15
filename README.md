@@ -150,6 +150,18 @@ Valid keyword arguments:
 * `workers: int` - how many async server workers to run (defaults to 2)
 * `doc_path: str` - path (relative to the directory where the server runs) of the generated documentation. Ignored if not in development mode.
 
+### logger
+
+brontosaurus comes with a logger that you can import:
+
+```py
+from brontosaurus import logger
+
+logger.info('Hello world')
+```
+
+Log messages sent to this logger will show up both in stdout and in your app.log rotating log file.
+
 #### Development mode
 
 Development mode has the following effects:

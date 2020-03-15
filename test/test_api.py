@@ -1,5 +1,5 @@
 import multiprocessing
-from brontosaurus import API
+from brontosaurus import API, logger
 import requests
 import json
 import time
@@ -32,6 +32,7 @@ message = {
 @api.params(message)
 @api.result(message)
 def echo(params, headers):
+    logger.debug('This is a log message from the echo method.')
     return {'message': params['message'] * 10}
 
 
