@@ -115,6 +115,13 @@ $ curl -d '{"method": "echo", "params": {"message": "hello world"}}'
 
 Decorator for marking a method as deprecated. Pass in a string message that describes the reason for the deprecation and other methods the user can use instead. The method will show up as deprecated with the deprecation message in the auto-generated docs.
 
+```py
+@api.method('hello_world')
+@api.deprecated('From now we do not need to say hello anymore.')
+def hello_world(params, headers):
+    return 'hello world!'
+```
+
 ### ` @api.subpath(path, title, description, **options)`
 
 You can create multiple nested RPC APIs within a single server by using the `subpath` method. Each sub-path is a standalone, discrete JSON RPC API.
