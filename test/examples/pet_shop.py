@@ -6,7 +6,7 @@ at http://spacejam.com. For this sample, you can use the api key
 special-key to test the authorization filters.
 """
 
-api = API("Brontosaurus Petstore", desc)
+api = API("Brontosaurus Petstore", desc, doc_path='test/examples/docs/pet_shop_api.md')
 
 
 # Pet status type

@@ -2,6 +2,7 @@ import multiprocessing
 import requests
 import json
 import time
+import os
 
 from test.examples.paths import api
 
@@ -62,3 +63,12 @@ def test_valid_request2():
     assert resp.ok
     expected = '{"jsonrpc":"2.0","id":123,"result":"hello from subpath2"}'
     assert resp.text == expected
+
+
+def test_docs_paths():
+    """
+    Test that the API docs are at their proper paths.
+    """
+    assert os.path.exists('test/examples/docs/paths-root-api.md')
+    assert os.path.exists('test/examples/docs/paths-subpath1.md')
+    assert os.path.exists('test/examples/docs/paths-subpath1.md')

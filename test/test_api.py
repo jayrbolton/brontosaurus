@@ -92,10 +92,11 @@ def test_options_request():
 
 
 def test_path_not_found():
-    resp = requests.post(_URL + '/what')
+    body = {'id': 0, 'jsonrpc': '2.0', 'method': 'echo', 'params': {}}
+    resp = requests.post(_URL + '/what', data=json.dumps(body))
     assert not resp.ok
     assert resp.status_code == 404
-    assert resp.text == ''
+    assert resp.text == 'null'
 
 
 def test_invalid_json_syntax():

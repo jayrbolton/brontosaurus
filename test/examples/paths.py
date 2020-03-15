@@ -4,16 +4,18 @@ desc = """
 Test server showing multiple sub-paths, each with a different RPC API.
 """
 
-api = API("Paths Example", desc)
+api = API("Paths Example", desc, doc_path='test/examples/docs/paths-root-api.md')
 subpath1 = api.subpath(
     path='subpath1',
     title='Subpath One',
-    desc='First Subpath example'
+    desc='First Subpath example',
+    doc_path='test/examples/docs/paths-subpath1.md'
 )
 subpath2 = api.subpath(
     path='subpath2',
     title='Subpath Two',
-    desc='Second Subpath example'
+    desc='Second Subpath example',
+    doc_path='test/examples/docs/paths-subpath2.md'
 )
 
 

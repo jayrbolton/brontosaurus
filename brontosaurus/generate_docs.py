@@ -2,13 +2,21 @@
 Generate API documentation from an API object.
 """
 import json
-from sanic.log import logger
 
 
-def generate_docs(api, path):
+def generate_docs(api):
+    # Generate root api docs
+    generate_single_docs(api)
+    # Generate subpath api docs
+    for (_, sub_api) in api.subpaths.items():
+        generate_single_docs(sub_api)
+
+
+def generate_single_docs(api):
     """
     Generate documentation from an API object.
     """
+    path = api.doc_path
     with open(path, 'w') as fd:
         fd.write('')
     with open(path, 'a') as fd:
