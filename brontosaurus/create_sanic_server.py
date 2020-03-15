@@ -157,9 +157,8 @@ def _handle_root_resp(api, req, req_json, development, path):
     headers = dict(req.headers)
     meth_name = req_json['method']
     if path:
-        print('HAS PATH', path)
         if path not in api.subpaths:
-            return (sanic.response.raw(b''), 404)
+            return (None, 404)
         api_handler = api.subpaths[path]
     else:
         api_handler = api

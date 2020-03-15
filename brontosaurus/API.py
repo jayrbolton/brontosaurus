@@ -11,12 +11,13 @@ class API:
     Class for a brontosaurus API object.
     """
 
-    def __init__(self, title, desc):
+    def __init__(self, title, desc, doc_path='API.md'):
         """
         Create a new JSON RPC + JSON Schema API.
         """
         self.title = title
         self.desc = desc
+        self.doc_path = doc_path
         # Map function IDs to name, summary, func, params, result
         self.methods = {}  # type: dict
         # Map method name to function IDs
@@ -130,23 +131,28 @@ class API:
             return func
         return wrapper
 
-    def subpath(self, path, title, desc):
+    def subpath(self, path, title, desc, doc_path=None):
         """
         Create a nested API under a subpath.
         """
         if path in self.subpaths:
             raise RuntimeError(f"Subpath already taken: `{path}`")
-        self.subpaths[path] = API(title, desc)
-        return self.subpaths[path]
+        if path.startswith('/'):
+            path = path[1:]
+        if doc_path is None:
+            doc_path = path.replace('/', '-') + '.md'
+        subapi = API(title, desc, doc_path)
+        self.subpaths[path] = subapi
+        return subapi
 
-    def run(self, host='0.0.0.0', port=8080, development=True, cors=False, workers=2, doc_path='API.md'):
+    def run(self, host='0.0.0.0', port=8080, development=True, cors=False, workers=2):
         """
         Run the server.
         """
         if not workers:
             workers = multiprocessing.cpu_count()
         if development:
-            generate_docs(self, doc_path)
+            generate_docs(self)
             # Print log messages immediately without buffering them (slower)
             os.environ['PYTHONUNBUFFERED'] = '1'
             print('Running in development mode')  # TODO

@@ -31,6 +31,10 @@ from brontosaurus import API
 api = API("Example API", "This is an example API server.")
 ```
 
+Optional keyword arguments:
+
+* `doc_path: str` - path (relative to the directory where the server runs) of the generated documentation. Ignored if not in development mode.
+
 ### ` @api.method(name, summary)`
 
 Register a method name and a short description. Used as a decorator around a function that handles the method.
@@ -107,6 +111,33 @@ $ curl -d '{"method": "echo", "params": {"message": "hello world"}}'
 > {"jsonrpc": "2.0", "id": null, "result": {"message": "hello world"}}
 ```
 
+### ` @api.deprecated(msg: str)`
+
+Decorator for marking a method as deprecated. Pass in a string message that describes the reason for the deprecation and other methods the user can use instead. The method will show up as deprecated with the deprecation message in the auto-generated docs.
+
+### ` @api.subpath(path, title, description, **options)`
+
+You can create multiple nested RPC APIs within a single server by using the `subpath` method. Each sub-path is a standalone, discrete JSON RPC API.
+
+See a minimal example in [tests/examples/paths.py](tests/examples/paths.py).
+
+
+```py
+subpath1 = api.subpath(
+    path='/subpath1",
+    title="My Sub-API",
+    description="This is an extended description"
+)
+
+@subpath1.method('hello')
+def subpath1_hello(params, header):
+    return 'hello from subpath1'
+```
+
+Additional optional keyword arguments:
+
+* `doc_path: str` - path (relative to the directory where the server runs) of the generated documentation. Ignored if not in development mode.
+
 ### `api.register(type_name: str, json_schema: dict)`
 
 Register a JSON schema to be displayed in the API documentation. It does not
@@ -148,7 +179,6 @@ Valid keyword arguments:
 * `development: bool` - whether we are in development mode (defaults to `True`)
 * `cors: bool` - whether to fully enable cross origin requests (defaults to `False`)
 * `workers: int` - how many async server workers to run (defaults to 2)
-* `doc_path: str` - path (relative to the directory where the server runs) of the generated documentation. Ignored if not in development mode.
 
 ### logger
 
