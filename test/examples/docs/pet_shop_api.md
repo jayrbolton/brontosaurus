@@ -289,7 +289,7 @@ Create a new user account
 
 ## <a name="pet">[#pet](#pet)</a>
 
-Methods using this type: [get_pet](#get_pet), [find_pet_by_status](#find_pet_by_status), [update_pet](#update_pet), [create_pet](#create_pet), [find_pet_by_tags](#find_pet_by_tags)
+Methods using this type: [get_pet](#get_pet), [find_pet_by_status](#find_pet_by_status), [update_pet](#update_pet), [find_pet_by_tags](#find_pet_by_tags), [create_pet](#create_pet)
 
 JSON object
 * No extra properties allowed
