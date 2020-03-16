@@ -20,7 +20,7 @@ Some benefits:
 
 It is opinionated but customizable. The APIs are not resource-based, but instead use a method-call style from [JSON RPC 2.0](https://www.jsonrpc.org/specification) specification (for better or worse).
 
-**View a [quick code example](test/examples/pet_shop)** along with its **[auto-generated documentation](test/examples/pet_shop_api.md)**.
+**View a [quick code example](test/examples/pet_shop.py) along with its [auto-generated documentation](test/examples/docs/pet_shop_api.md)**.
 
 ## API and Usage
 
