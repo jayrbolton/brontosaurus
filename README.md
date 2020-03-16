@@ -1,3 +1,6 @@
+
+<img width='150' src='docs/logo.png' alt='logo'></img>
+
 # brontosaurus - streamlined JSON APIs
 
 Write small and fast API servers using:
